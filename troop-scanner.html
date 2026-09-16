@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Troop Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c121f;
+    --bg-2: #10182a;
+    --panel: #141d31;
+    --panel-2: #1a2540;
+    --border: #263352;
+    --ice: #6fd7ff;
+    --ice-dim: #3a5a78;
+    --amber: #ffb648;
+    --good: #7bd88f;
+    --text: #e7f0fb;
+    --muted: #8fa3c2;
+    --font-display: 'Barlow Condensed', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #eef2f8; --bg-2: #e4eaf3; --panel: #ffffff; --panel-2: #f3f6fb;
+      --border: #cdd8e8; --ice-dim: #bfe4f7; --text: #16233a; --muted: #5a6c8a;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef2f8; --bg-2: #e4eaf3; --panel: #ffffff; --panel-2: #f3f6fb;
+    --border: #cdd8e8; --ice-dim: #bfe4f7; --text: #16233a; --muted: #5a6c8a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100%;
+  }
+  body { padding: 28px 18px 60px; max-width: 640px; margin: 0 auto; }
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 22px; }
+  .title-block h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; letter-spacing: 0.3px; margin: 0 0 2px; line-height: 1.05; }
+  .title-block p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 46ch; }
+  .theme-toggle { border: 1px solid var(--border); background: var(--panel); color: var(--muted); border-radius: 8px; padding: 7px 10px; font-size: 12px; font-family: var(--font-body); cursor: pointer; flex-shrink: 0; }
+  .theme-toggle:hover { color: var(--text); border-color: var(--ice-dim); }
+  section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .step-label { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--ice); margin: 0 0 10px; }
+  label.field-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  select#langSelect {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px;
+    padding: 9px 10px; color: var(--text); font-family: var(--font-body); font-size: 13px; margin-bottom: 12px;
+  }
+  #dropzone { border: 1.5px dashed var(--border); border-radius: 8px; padding: 26px 16px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  #dropzone:hover, #dropzone.drag { border-color: var(--ice); background: var(--panel-2); }
+  #dropzone p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+  #dropzone strong { color: var(--text); }
+  #fileInput { display: none; }
+  #previewWrap { display: none; margin-top: 12px; }
+  #previewWrap img { max-width: 100%; max-height: 220px; border-radius: 6px; border: 1px solid var(--border); display: block; margin: 0 auto 10px; }
+  button.primary, button.secondary {
+    font-family: var(--font-body); font-weight: 600; font-size: 14px; border-radius: 7px;
+    padding: 10px 16px; cursor: pointer; border: 1px solid transparent; width: 100%;
+  }
+  button.primary { background: var(--ice); color: #0a1522; }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); margin-top: 8px; }
+  button.secondary:hover { border-color: var(--ice-dim); }
+  #scanStatus { display: none; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .barTrack { height: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; margin-top: 8px; }
+  .barFill { height: 100%; background: var(--ice); width: 0%; transition: width 0.2s; }
+  #resultsSection { display: none; }
+  .troop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .troop-field { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
+  .troop-field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .troop-field.found label { color: var(--good); }
+  .troop-field.missing label { color: var(--amber); }
+  .troop-field input { width: 100%; background: transparent; border: none; color: var(--text); font-family: var(--font-display); font-size: 19px; font-weight: 700; padding: 0; }
+  .troop-field input:focus { outline: none; color: var(--ice); }
+  .totals-row { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+  .totals-row span b { color: var(--text); font-family: var(--font-display); font-size: 15px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  textarea#exportBox {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px;
+    color: var(--text); font-family: 'Menlo', 'Consolas', monospace; font-size: 12px; padding: 10px;
+    resize: vertical; min-height: 90px; margin-top: 10px;
+  }
+  .copyRow { display: flex; gap: 8px; margin-top: 8px; }
+  .copyRow button { flex: 1; margin-top: 0; }
+  #copyMsg { font-size: 12px; color: var(--good); margin-top: 6px; display: none; }
+  #historySection .history-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  #historySection .history-item:last-child { border-bottom: none; }
+  .history-item .h-meta { color: var(--muted); font-size: 11.5px; }
+  .history-item button { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 5px 9px; font-size: 11.5px; cursor: pointer; }
+  .history-item button:hover { color: var(--text); border-color: var(--ice-dim); }
+  #historyEmpty { color: var(--muted); font-size: 13px; }
+  code.inline { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <h1>Troop Scanner</h1>
+    <p>Screenshot in, numbers out. Reads your Troops Preview screen and hands you the figures to drop into your Bear Trap calculator — nothing here touches that app.</p>
+  </div>
+  <button class="theme-toggle" id="themeToggle">Theme</button>
+</header>
+
+<section id="uploadSection">
+  <p class="step-label">1. Upload a screenshot</p>
+  <label class="field-label" for="langSelect">Screenshot language</label>
+  <select id="langSelect">
+    <option value="eng">English</option>
+    <option value="chi_sim">Chinese (Simplified)</option>
+    <option value="chi_tra">Chinese (Traditional)</option>
+    <option value="ara">Arabic</option>
+    <option value="pol">Polish</option>
+    <option value="rus">Russian</option>
+  </select>
+  <div id="dropzone">
+    <p><strong>Tap to choose</strong> or drop your Troops Preview screenshot here.<br>Works best with the "All" tab shown, like your usual screen.</p>
+  </div>
+  <input type="file" id="fileInput" accept="image/*">
+  <div id="previewWrap">
+    <img id="previewImg" alt="Screenshot preview">
+    <button class="primary" id="scanBtn">Scan screenshot</button>
+    <button class="secondary" id="rescanBtn">Choose a different image</button>
+  </div>
+  <div id="scanStatus">
+    <span id="scanStatusText">Reading image…</span>
+    <div class="barTrack"><div class="barFill" id="scanBar"></div></div>
+  </div>
+</section>
+
+<section id="resultsSection">
+  <p class="step-label">2. Check the numbers</p>
+  <div class="troop-grid" id="troopGrid"></div>
+  <div class="totals-row" id="totalsRow"></div>
+  <p class="hint">Anything the scan couldn't find is left at <code class="inline">0</code> and marked amber — fill it in by hand before copying. Every field is editable either way.</p>
+
+  <p class="step-label" style="margin-top:18px;">3. Copy into your calculator</p>
+  <div class="copyRow">
+    <button class="secondary" id="copyJsonBtn">Copy as JSON</button>
+    <button class="secondary" id="copyTextBtn">Copy as text</button>
+  </div>
+  <span id="copyMsg">Copied.</span>
+  <textarea id="exportBox" readonly></textarea>
+
+  <p class="hint">Give this reading a label and save it below so you can compare accounts or track changes over time — this list lives only in this tool.</p>
+  <div style="display:flex; gap:8px; margin-top:10px;">
+    <input type="text" id="labelInput" placeholder="e.g. Account A — 17 Sep" style="flex:1; background:var(--panel-2); border:1px solid var(--border); border-radius:7px; padding:9px 10px; color:var(--text); font-family:var(--font-body); font-size:13px;">
+    <button class="primary" id="saveBtn" style="width:auto; padding:9px 16px;">Save</button>
+  </div>
+</section>
+
+<section id="historySection">
+  <p class="step-label">Saved readings</p>
+  <div id="historyList"></div>
+  <p id="historyEmpty">Nothing saved yet.</p>
+</section>
+
+<script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+<script>
+(function () {
+  "use strict";
+
+  var root = document.documentElement;
+  var themeBtn = document.getElementById('themeToggle');
+  function currentTheme() {
+    return root.getAttribute('data-theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }
+  themeBtn.addEventListener('click', function () {
+    root.setAttribute('data-theme', currentTheme() === 'dark' ? 'light' : 'dark');
+  });
+
+  var FIELDS = [
+    { key: 'apexInfantry',    label: 'Apex Infantry',    keywords: ['apex', 'infantry'] },
+    { key: 'apexLancer',      label: 'Apex Lancer',      keywords: ['apex', 'lancer'] },
+    { key: 'apexMarksman',    label: 'Apex Marksman',    keywords: ['apex', 'marksman'] },
+    { key: 'supremeInfantry', label: 'Supreme Infantry', keywords: ['supreme', 'infantry'] },
+    { key: 'supremeLancer',   label: 'Supreme Lancer',   keywords: ['supreme', 'lancer'] },
+    { key: 'supremeMarksman', label: 'Supreme Marksman', keywords: ['supreme', 'marksman'] }
+  ];
+
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('fileInput');
+  var previewWrap = document.getElementById('previewWrap');
+  var previewImg = document.getElementById('previewImg');
+  var scanBtn = document.getElementById('scanBtn');
+  var rescanBtn = document.getElementById('rescanBtn');
+  var scanStatus = document.getElementById('scanStatus');
+  var scanStatusText = document.getElementById('scanStatusText');
+  var scanBar = document.getElementById('scanBar');
+  var langSelect = document.getElementById('langSelect');
+  var resultsSection = document.getElementById('resultsSection');
+  var troopGrid = document.getElementById('troopGrid');
+  var totalsRow = document.getElementById('totalsRow');
+  var exportBox = document.getElementById('exportBox');
+  var copyJsonBtn = document.getElementById('copyJsonBtn');
+  var copyTextBtn = document.getElementById('copyTextBtn');
+  var copyMsg = document.getElementById('copyMsg');
+  var labelInput = document.getElementById('labelInput');
+  var saveBtn = document.getElementById('saveBtn');
+  var historyList = document.getElementById('historyList');
+  var historyEmpty = document.getElementById('historyEmpty');
+
+  var currentValues = {};
+  var currentFound = {};
+  var currentFile = null;
+
+  dropzone.addEventListener('click', function () { fileInput.click(); });
+  ['dragover'].forEach(function (evt) {
+    dropzone.addEventListener(evt, function (e) { e.preventDefault(); dropzone.classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    dropzone.addEventListener(evt, function (e) { e.preventDefault(); dropzone.classList.remove('drag'); });
+  });
+  dropzone.addEventListener('drop', function (e) {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', function (e) {
+    if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  function handleFile(file) {
+    currentFile = file;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      previewImg.src = e.target.result;
+      previewWrap.style.display = 'block';
+      dropzone.style.display = 'none';
+      resultsSection.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  rescanBtn.addEventListener('click', function () {
+    currentFile = null;
+    fileInput.value = '';
+    previewWrap.style.display = 'none';
+    dropzone.style.display = 'block';
+    resultsSection.style.display = 'none';
+  });
+
+  scanBtn.addEventListener('click', function () {
+    if (!currentFile) return;
+    runScan(currentFile, langSelect.value);
+  });
+
+  function runScan(file, lang) {
+    scanBtn.disabled = true;
+    scanStatus.style.display = 'block';
+    scanStatusText.textContent = 'Warming up the reader…';
+    scanBar.style.width = '5%';
+
+    Tesseract.recognize(file, lang, {
+      workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
+      logger: function (m) {
+        if (m.status) {
+          var pct = m.progress ? Math.round(m.progress * 100) : 0;
+          scanStatusText.textContent = m.status.replace(/_/g, ' ') + '…';
+          scanBar.style.width = Math.max(5, pct) + '%';
+        }
+      }
+    }).then(function (result) {
+      scanBar.style.width = '100%';
+      scanStatusText.textContent = 'Done.';
+      var parsed = parseText(result.data.text);
+      showResults(parsed);
+      setTimeout(function () {
+        scanStatus.style.display = 'none';
+        scanBtn.disabled = false;
+      }, 400);
+    }).catch(function (err) {
+      console.error('OCR error:', err);
+      scanStatusText.textContent = "Couldn't read that image. You can still enter numbers by hand below.";
+      var empty = {};
+      FIELDS.forEach(function (f) { empty[f.key] = null; });
+      showResults(empty);
+      scanBtn.disabled = false;
+    });
+  }
+
+  function parseText(text) {
+    var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    var lowerLines = lines.map(function (l) { return l.toLowerCase(); });
+    var out = {};
+    FIELDS.forEach(function (field) {
+      out[field.key] = findValueForField(lines, lowerLines, field.keywords);
+    });
+    return out;
+  }
+
+  function lineHasKeywords(lowerLine, keywords) {
+    return keywords.every(function (kw) { return lowerLine.indexOf(kw) !== -1; });
+  }
+
+  function extractNumber(line) {
+    var m = line.match(/(\d[\d,]{1,})/g);
+    if (!m) return null;
+    var best = m.reduce(function (a, b) { return b.replace(/,/g, '').length > a.replace(/,/g, '').length ? b : a; });
+    var n = parseInt(best.replace(/,/g, ''), 10);
+    return isNaN(n) ? null : n;
+  }
+
+  function findValueForField(lines, lowerLines, keywords) {
+    for (var i = 0; i < lines.length; i++) {
+      if (lineHasKeywords(lowerLines[i], keywords)) {
+        var same = extractNumber(lines[i]);
+        if (same !== null && same > 20) return same;
+        for (var j = i + 1; j <= Math.min(i + 2, lines.length - 1); j++) {
+          var n = extractNumber(lines[j]);
+          if (n !== null) return n;
+        }
+      }
+    }
+    return null;
+  }
+
+  function showResults(values) {
+    troopGrid.innerHTML = '';
+    currentValues = {};
+    currentFound = {};
+
+    FIELDS.forEach(function (field) {
+      var found = values[field.key] !== null && values[field.key] !== undefined;
+      currentFound[field.key] = found;
+      currentValues[field.key] = found ? values[field.key] : 0;
+
+      var wrap = document.createElement('div');
+      wrap.className = 'troop-field ' + (found ? 'found' : 'missing');
+      wrap.innerHTML = '<label>' + field.label + '</label>';
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.inputMode = 'numeric';
+      input.value = currentValues[field.key].toLocaleString('en-US');
+      input.dataset.key = field.key;
+      input.addEventListener('input', function () {
+        var raw = input.value.replace(/[^\d]/g, '');
+        currentValues[input.dataset.key] = raw ? parseInt(raw, 10) : 0;
+        updateTotalsAndExport();
+      });
+      input.addEventListener('blur', function () {
+        input.value = currentValues[input.dataset.key].toLocaleString('en-US');
+      });
+      wrap.appendChild(input);
+      troopGrid.appendChild(wrap);
+    });
+
+    resultsSection.style.display = 'block';
+    updateTotalsAndExport();
+    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function totals() {
+    return {
+      infantry: (currentValues.apexInfantry || 0) + (currentValues.supremeInfantry || 0),
+      lancer: (currentValues.apexLancer || 0) + (currentValues.supremeLancer || 0),
+      marksman: (currentValues.apexMarksman || 0) + (currentValues.supremeMarksman || 0)
+    };
+  }
+
+  function updateTotalsAndExport() {
+    var t = totals();
+    totalsRow.innerHTML =
+      '<span>Infantry <b>' + t.infantry.toLocaleString('en-US') + '</b></span>' +
+      '<span>Lancer <b>' + t.lancer.toLocaleString('en-US') + '</b></span>' +
+      '<span>Marksman <b>' + t.marksman.toLocaleString('en-US') + '</b></span>';
+    exportBox.value = buildTextExport();
+  }
+
+  function buildTextExport() {
+    var t = totals();
+    var lines = [];
+    FIELDS.forEach(function (f) {
+      lines.push(f.label + ': ' + (currentValues[f.key] || 0).toLocaleString('en-US'));
+    });
+    lines.push('');
+    lines.push('Total Infantry: ' + t.infantry.toLocaleString('en-US'));
+    lines.push('Total Lancer: ' + t.lancer.toLocaleString('en-US'));
+    lines.push('Total Marksman: ' + t.marksman.toLocaleString('en-US'));
+    return lines.join('\n');
+  }
+
+  function buildJsonExport() {
+    var t = totals();
+    var obj = {};
+    FIELDS.forEach(function (f) { obj[f.key] = currentValues[f.key] || 0; });
+    obj.totalInfantry = t.infantry;
+    obj.totalLancer = t.lancer;
+    obj.totalMarksman = t.marksman;
+    return JSON.stringify(obj, null, 2);
+  }
+
+  function flashCopy() {
+    copyMsg.style.display = 'inline';
+    setTimeout(function () { copyMsg.style.display = 'none'; }, 1800);
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(flashCopy).catch(function () {
+        exportBox.value = text; exportBox.select(); flashCopy();
+      });
+    } else {
+      exportBox.value = text; exportBox.select(); flashCopy();
+    }
+  }
+
+  copyJsonBtn.addEventListener('click', function () {
+    var json = buildJsonExport();
+    exportBox.value = json;
+    copyToClipboard(json);
+  });
+  copyTextBtn.addEventListener('click', function () {
+    var txt = buildTextExport();
+    exportBox.value = txt;
+    copyToClipboard(txt);
+  });
+
+  var STORAGE_KEY = 'troopScannerHistory';
+
+  function loadHistory() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+  function saveHistory(list) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function renderHistory() {
+    var list = loadHistory();
+    historyList.innerHTML = '';
+    historyEmpty.style.display = list.length ? 'none' : 'block';
+    list.slice().reverse().forEach(function (entry) {
+      var row = document.createElement('div');
+      row.className = 'history-item';
+      var date = new Date(entry.savedAt);
+      row.innerHTML =
+        '<div><div>' + escapeHtml(entry.label || 'Untitled') + '</div>' +
+        '<div class="h-meta">' + date.toLocaleDateString() + ' · Infantry ' + entry.totals.infantry.toLocaleString('en-US') +
+        ' · Lancer ' + entry.totals.lancer.toLocaleString('en-US') +
+        ' · Marksman ' + entry.totals.marksman.toLocaleString('en-US') + '</div></div>';
+      var btns = document.createElement('div');
+      btns.style.display = 'flex';
+      btns.style.gap = '6px';
+      var loadBtn = document.createElement('button');
+      loadBtn.textContent = 'Load';
+      loadBtn.addEventListener('click', function () { showResults(entry.values); });
+      var delBtn = document.createElement('button');
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', function () {
+        var l = loadHistory().filter(function (e) { return e.id !== entry.id; });
+        saveHistory(l);
+        renderHistory();
+      });
+      btns.appendChild(loadBtn);
+      btns.appendChild(delBtn);
+      row.appendChild(btns);
+      historyList.appendChild(row);
+    });
+  }
+  function escapeHtml(s) {
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  saveBtn.addEventListener('click', function () {
+    var list = loadHistory();
+    list.push({
+      id: Date.now().toString(36),
+      label: labelInput.value.trim() || 'Untitled',
+      savedAt: new Date().toISOString(),
+      values: Object.assign({}, currentValues),
+      totals: totals()
+    });
+    saveHistory(list);
+    labelInput.value = '';
+    renderHistory();
+  });
+
+  renderHistory();
+})();
+</script>
+</body>
+</html>
